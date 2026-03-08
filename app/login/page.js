@@ -19,9 +19,18 @@ export default function Login() {
     setMessage('')
 
     if (isSignup) {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setMessage('Erro: ' + error.message)
-      else setMessage('✅ Verifique seu email para confirmar o cadastro!')
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: null }
+      })
+      if (error) {
+        setMessage('Erro: ' + error.message)
+      } else {
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+        if (loginError) setMessage('Conta criada! Agora clique em Entrar.')
+        else window.location.href = '/dashboard'
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setMessage('Erro: ' + error.message)
@@ -93,7 +102,7 @@ export default function Login() {
         <p style={{ fontSize: '13px', color: '#6B6B7A' }}>
           {isSignup ? 'Já tem conta? ' : 'Não tem conta? '}
           <span
-            onClick={() => setIsSignup(!isSignup)}
+            onClick={() => { setIsSignup(!isSignup); setMessage('') }}
             style={{ color: '#C9A84C', cursor: 'pointer', fontWeight: '600' }}
           >
             {isSignup ? 'Entrar' : 'Cadastrar grátis'}
