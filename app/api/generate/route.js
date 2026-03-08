@@ -44,10 +44,16 @@ ESTILO:
 - Fundo escuro #0D1B2A
 - Importar Playfair Display e Josefin Sans do Google Fonts
 - Cor dourada #C9A84C para destaques
+- Todo texto de conteúdo deve ser BRANCO #FFFFFF ou no mínimo rgba(255,255,255,0.85) — NUNCA cinza escuro
 - Cards com bordas arredondadas
 - Badge com nome "${agencyName}" no topo e rodapé
 - Responsivo para mobile
 - Checkboxes funcionais com JavaScript
+
+RESTAURANTES:
+- Para cada restaurante inclua o endereço completo
+- Crie um link clicável assim: <a href="https://www.google.com/maps/search/NOME+DO+RESTAURANTE+CIDADE" target="_blank" style="color:#C9A84C;">📍 Ver no Google Maps</a>
+- Substitua espaços por + na URL do Maps
 
 IMPORTANTE: Retorne APENAS o HTML puro, sem markdown, sem blocos de código, sem explicações.`
             }
