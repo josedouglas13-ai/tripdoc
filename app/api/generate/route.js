@@ -11,7 +11,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 8000,
+        max_tokens: 32000,
         messages: [{
           role: 'user',
           content: [
