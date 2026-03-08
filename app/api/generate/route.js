@@ -48,7 +48,8 @@ ESTILO:
 - Cards com bordas arredondadas
 - Badge com nome "${agencyName}" no topo e rodapé
 - Responsivo para mobile
-- Checkboxes funcionais com JavaScript
+- Checkboxes funcionais com JavaScript assim:
+  <input type="checkbox" onclick="this.parentElement.style.textDecoration=this.checked?'line-through':'none'" style="cursor:pointer;width:16px;height:16px;margin-right:8px;">
 
 RESTAURANTES:
 - Para cada restaurante inclua o endereço completo
