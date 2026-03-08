@@ -14,16 +14,29 @@ export default function Dashboard() {
   const [guide, setGuide] = useState('')
   const [agencyName, setAgencyName] = useState('')
   const [step, setStep] = useState('upload')
+  const [history, setHistory] = useState([])
+  const [activeTab, setActiveTab] = useState('novo')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) window.location.href = '/login'
-      else setUser(data.user)
+      else {
+        setUser(data.user)
+        loadHistory(data.user.id)
+      }
     })
   }, [])
 
+  async function loadHistory(userId) {
+    const { data } = await supabase
+      .from('guides')
+      .select('*')
+      .eq('agency_id', userId)
+      .order('created_at', { ascending: false })
+    if (data) setHistory(data)
+  }
+
   async function generateGuide() {
-    if (!file && !agencyName) return alert('Preencha o nome da agência e faça upload do voucher!')
     if (!file) return alert('Faça upload do voucher PDF!')
     if (!agencyName) return alert('Preencha o nome da agência!')
 
@@ -41,8 +54,26 @@ export default function Dashboard() {
       })
 
       const data = await response.json()
-      setGuide(data.html)
-      setStep('result')
+
+      if (data.html) {
+        setGuide(data.html)
+        setStep('result')
+
+        // Salvar no Supabase
+        const { data: userData } = await supabase.auth.getUser()
+        await supabase.from('guides').insert({
+          agency_id: userData.user.id,
+          destination: agencyName,
+          client_name: file.name,
+          html_content: data.html
+        })
+
+        loadHistory(userData.user.id)
+      } else {
+        alert('Erro ao gerar guia. Tente novamente.')
+        setStep('upload')
+      }
+
       setLoading(false)
     }
     reader.readAsDataURL(file)
@@ -68,6 +99,13 @@ export default function Dashboard() {
     a.click()
   }
 
+  function viewHistory(item) {
+    setGuide(item.html_content)
+    setAgencyName(item.destination)
+    setStep('result')
+    setActiveTab('novo')
+  }
+
   if (!user) return <div style={{ background: '#0A0A0F', minHeight: '100vh' }} />
 
   return (
@@ -91,112 +129,160 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* TABS */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e0e0e0', padding: '0 32px', display: 'flex', gap: '4px' }}>
+        {['novo', 'historico'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            padding: '14px 20px', border: 'none', background: 'none',
+            fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+            borderBottom: activeTab === tab ? '2px solid #C9A84C' : '2px solid transparent',
+            color: activeTab === tab ? '#0A0A0F' : '#6B6B7A'
+          }}>
+            {tab === 'novo' ? '⚡ Novo Guia' : `📋 Histórico (${history.length})`}
+          </button>
+        ))}
+      </div>
+
       <div style={{ maxWidth: '760px', margin: '0 auto', padding: '40px 24px' }}>
 
-        {/* UPLOAD */}
-        {step === 'upload' && (
+        {/* NOVO GUIA */}
+        {activeTab === 'novo' && (
+          <>
+            {step === 'upload' && (
+              <div>
+                <h2 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>Novo Guia</h2>
+                <p style={{ color: '#6B6B7A', marginBottom: '32px' }}>Faça upload do voucher e gere um guia premium</p>
+
+                <div style={{ background: '#fff', borderRadius: '20px', padding: '32px', marginBottom: '16px' }}>
+                  <label style={{ fontSize: '12px', letterSpacing: '2px', textTransform: 'uppercase', color: '#6B6B7A', display: 'block', marginBottom: '8px' }}>
+                    Nome da Agência
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Sol & Mar Viagens"
+                    value={agencyName}
+                    onChange={e => setAgencyName(e.target.value)}
+                    style={{
+                      width: '100%', padding: '12px 16px', borderRadius: '10px',
+                      border: '1px solid #e0e0e0', fontSize: '14px',
+                      outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div
+                  onClick={() => document.getElementById('file-input').click()}
+                  style={{
+                    background: '#fff', borderRadius: '20px', padding: '48px 32px',
+                    textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
+                    border: file ? '2px solid #C9A84C' : '2px dashed #e0e0e0'
+                  }}
+                >
+                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📄</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
+                    {file ? `✅ ${file.name}` : 'Clique para fazer upload do voucher PDF'}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#6B6B7A' }}>
+                    {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Suporta PDF de hotéis, voos e pacotes'}
+                  </div>
+                  <input id="file-input" type="file" accept=".pdf"
+                    style={{ display: 'none' }}
+                    onChange={e => setFile(e.target.files[0])}
+                  />
+                </div>
+
+                <button onClick={generateGuide} style={{
+                  width: '100%', padding: '18px', background: '#0A0A0F',
+                  color: '#fff', border: 'none', borderRadius: '14px',
+                  fontSize: '16px', fontWeight: '700', cursor: 'pointer'
+                }}>
+                  ⚡ Gerar Guia Premium
+                </button>
+              </div>
+            )}
+
+            {step === 'loading' && (
+              <div style={{ textAlign: 'center', padding: '80px 0' }}>
+                <div style={{ fontSize: '48px', marginBottom: '24px' }}>⚡</div>
+                <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>Gerando seu guia...</h2>
+                <p style={{ color: '#6B6B7A' }}>Nossa IA está analisando o voucher. Aguarde alguns segundos.</p>
+              </div>
+            )}
+
+            {step === 'result' && (
+              <div>
+                <div style={{
+                  background: '#fff', borderRadius: '16px', padding: '16px 24px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  marginBottom: '24px', flexWrap: 'wrap', gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{
+                      background: 'rgba(26,107,107,0.1)', color: '#1A6B6B',
+                      padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: '600'
+                    }}>✓ Guia gerado!</span>
+                    <span style={{ fontWeight: '700' }}>{agencyName}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button onClick={() => setStep('upload')} style={{
+                      padding: '10px 18px', borderRadius: '10px', fontSize: '13px',
+                      fontWeight: '600', cursor: 'pointer', background: '#fff',
+                      border: '1.5px solid #e0e0e0'
+                    }}>+ Novo guia</button>
+                    <button onClick={sendWhatsApp} style={{
+                      padding: '10px 18px', borderRadius: '10px', fontSize: '13px',
+                      fontWeight: '600', cursor: 'pointer', background: '#25D366', color: '#fff', border: 'none'
+                    }}>📲 WhatsApp</button>
+                    <button onClick={downloadPDF} style={{
+                      padding: '10px 18px', borderRadius: '10px', fontSize: '13px',
+                      fontWeight: '600', cursor: 'pointer', background: '#0A0A0F', color: '#fff', border: 'none'
+                    }}>📥 Download</button>
+                  </div>
+                </div>
+                <div style={{ background: '#fff', borderRadius: '20px', overflow: 'hidden' }}
+                  dangerouslySetInnerHTML={{ __html: guide }}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* HISTÓRICO */}
+        {activeTab === 'historico' && (
           <div>
-            <h2 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>Novo Guia</h2>
-            <p style={{ color: '#6B6B7A', marginBottom: '32px' }}>Faça upload do voucher e gere um guia premium</p>
+            <h2 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>Histórico</h2>
+            <p style={{ color: '#6B6B7A', marginBottom: '32px' }}>Seus guias gerados anteriormente</p>
 
-            <div style={{ background: '#fff', borderRadius: '20px', padding: '32px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', letterSpacing: '2px', textTransform: 'uppercase', color: '#6B6B7A', display: 'block', marginBottom: '8px' }}>
-                Nome da Agência
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Sol & Mar Viagens"
-                value={agencyName}
-                onChange={e => setAgencyName(e.target.value)}
-                style={{
-                  width: '100%', padding: '12px 16px', borderRadius: '10px',
-                  border: '1px solid #e0e0e0', fontSize: '14px',
-                  outline: 'none', boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div
-              onClick={() => document.getElementById('file-input').click()}
-              style={{
-                background: '#fff', borderRadius: '20px', padding: '48px 32px',
-                textAlign: 'center', cursor: 'pointer', marginBottom: '16px',
-                border: file ? '2px solid #C9A84C' : '2px dashed #e0e0e0'
-              }}
-            >
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>📄</div>
-              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
-                {file ? `✅ ${file.name}` : 'Clique para fazer upload do voucher PDF'}
+            {history.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px', background: '#fff', borderRadius: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                <div style={{ fontSize: '16px', fontWeight: '600' }}>Nenhum guia gerado ainda</div>
+                <div style={{ fontSize: '14px', color: '#6B6B7A', marginTop: '8px' }}>Gere seu primeiro guia na aba "Novo Guia"</div>
               </div>
-              <div style={{ fontSize: '13px', color: '#6B6B7A' }}>
-                {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Suporta PDF de hotéis, voos e pacotes'}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {history.map((item) => (
+                  <div key={item.id} style={{
+                    background: '#fff', borderRadius: '16px', padding: '20px 24px',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    border: '1px solid #e0e0e0', cursor: 'pointer'
+                  }}
+                    onClick={() => viewHistory(item)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '4px' }}>{item.destination}</div>
+                      <div style={{ fontSize: '12px', color: '#6B6B7A' }}>
+                        {item.client_name} · {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    <span style={{ color: '#C9A84C', fontWeight: '600', fontSize: '13px' }}>Ver guia →</span>
+                  </div>
+                ))}
               </div>
-              <input
-                id="file-input" type="file" accept=".pdf"
-                style={{ display: 'none' }}
-                onChange={e => setFile(e.target.files[0])}
-              />
-            </div>
-
-            <button
-              onClick={generateGuide}
-              style={{
-                width: '100%', padding: '18px', background: '#0A0A0F',
-                color: '#fff', border: 'none', borderRadius: '14px',
-                fontSize: '16px', fontWeight: '700', cursor: 'pointer'
-              }}
-            >
-              ⚡ Gerar Guia Premium
-            </button>
+            )}
           </div>
         )}
 
-        {/* LOADING */}
-        {step === 'loading' && (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '24px' }}>⚡</div>
-            <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>Gerando seu guia...</h2>
-            <p style={{ color: '#6B6B7A' }}>Nossa IA está analisando o voucher. Aguarde alguns segundos.</p>
-          </div>
-        )}
-
-        {/* RESULT */}
-        {step === 'result' && (
-          <div>
-            <div style={{
-              background: '#fff', borderRadius: '16px', padding: '16px 24px',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginBottom: '24px', flexWrap: 'wrap', gap: '12px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{
-                  background: 'rgba(26,107,107,0.1)', color: '#1A6B6B',
-                  padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: '600'
-                }}>✓ Guia gerado!</span>
-                <span style={{ fontWeight: '700' }}>{agencyName}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button onClick={() => setStep('upload')} style={{
-                  padding: '10px 18px', borderRadius: '10px', fontSize: '13px',
-                  fontWeight: '600', cursor: 'pointer', background: '#fff',
-                  border: '1.5px solid #e0e0e0'
-                }}>+ Novo guia</button>
-                <button onClick={sendWhatsApp} style={{
-                  padding: '10px 18px', borderRadius: '10px', fontSize: '13px',
-                  fontWeight: '600', cursor: 'pointer', background: '#25D366', color: '#fff', border: 'none'
-                }}>📲 WhatsApp</button>
-                <button onClick={downloadPDF} style={{
-                  padding: '10px 18px', borderRadius: '10px', fontSize: '13px',
-                  fontWeight: '600', cursor: 'pointer', background: '#0A0A0F', color: '#fff', border: 'none'
-                }}>📥 Download</button>
-              </div>
-            </div>
-
-            <div style={{ background: '#fff', borderRadius: '20px', overflow: 'hidden' }}
-              dangerouslySetInnerHTML={{ __html: guide }}
-            />
-          </div>
-        )}
       </div>
     </main>
   )
