@@ -1,8 +1,16 @@
 export async function POST(request) {
   try {
-    const { pdfBase64, agencyName } = await request.json()
+    console.log('API chamada')
+    const body = await request.json()
+    console.log('Body recebido, agencyName:', body.agencyName)
+    
+    const { pdfBase64, agencyName } = body
 
-    const prompt = "Você é especialista em turismo. Analise o voucher e gere um guia de viagem completo em HTML.\n\nAGÊNCIA: " + agencyName + "\n\nGERE UM HTML COMPLETO COM:\n1. Hero com destino, datas e passageiros\n2. Todos os voos com horários\n3. Hotel com check-in/out e amenidades\n4. Roteiro diário detalhado\n5. 6 restaurantes recomendados com endereço e link do Google Maps\n6. 6 passeios e atrações\n7. Dicas práticas de segurança e saúde\n8. Contatos de emergência\n9. Checklist final com checkboxes clicáveis\n\nESTILO:\n- Fundo escuro #0D1B2A\n- Importar Playfair Display e Josefin Sans do Google Fonts\n- Cor dourada #C9A84C para destaques\n- Todo texto de conteúdo deve ser BRANCO #FFFFFF\n- Cards com bordas arredondadas\n- Badge com nome " + agencyName + " no topo e rodapé\n- Responsivo para mobile\n\nRESTAURANTES: Para cada restaurante inclua endereco e link clicavel para Google Maps.\n\nCHECKBOXES: Use input type checkbox com label clicavel.\n\nIMPORTANTE: Retorne APENAS o HTML puro, sem markdown, sem blocos de codigo."
+    if (!pdfBase64) {
+      return Response.json({ error: 'PDF não recebido' }, { status: 400 })
+    }
+
+    console.log('Chamando Anthropic...')
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -27,17 +35,19 @@ export async function POST(request) {
             },
             {
               type: 'text',
-              text: prompt
+              text: 'Analise o voucher e gere um guia de viagem completo em HTML para a agencia ' + agencyName + '. Retorne APENAS HTML puro.'
             }
           ]
         }]
       })
     })
 
+    console.log('Anthropic status:', response.status)
     const data = await response.json()
+    console.log('Anthropic resposta:', JSON.stringify(data).slice(0, 300))
 
     if (!data.content || data.content.length === 0) {
-      return Response.json({ error: 'Sem resposta da IA', details: data }, { status: 500 })
+      return Response.json({ error: 'Sem conteudo', details: data }, { status: 500 })
     }
 
     const html = data.content[0].text
@@ -47,11 +57,10 @@ export async function POST(request) {
       .trim()
 
     const shareToken = crypto.randomUUID()
-
     return Response.json({ html, shareToken })
 
   } catch (err) {
-    console.error('Erro na API:', err)
+    console.error('ERRO:', err.message)
     return Response.json({ error: err.message }, { status: 500 })
   }
 }
