@@ -37,9 +37,10 @@ export default function Dashboard() {
     if (data) setHistory(data)
   }
 
-  async function generateGuide() {
+async function generateGuide() {
     if (!file) return alert('Faça upload do voucher PDF!')
     if (!agencyName) return alert('Preencha o nome da agência!')
+    if (file.size > 5 * 1024 * 1024) return alert('PDF muito grande! Use um arquivo menor que 5MB.')
     setLoading(true)
     setStep('loading')
 
