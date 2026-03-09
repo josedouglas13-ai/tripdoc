@@ -11,7 +11,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 32000,
+        max_tokens: 16000,
         messages: [{
           role: 'user',
           content: [
@@ -34,7 +34,7 @@ GERE UM HTML COMPLETO COM:
 2. Todos os voos com horários
 3. Hotel com check-in/out e amenidades
 4. Roteiro diário detalhado
-5. 6 restaurantes recomendados
+5. 6 restaurantes recomendados com endereço e link do Google Maps
 6. 6 passeios e atrações
 7. Dicas práticas de segurança e saúde
 8. Contatos de emergência
@@ -44,17 +44,19 @@ ESTILO:
 - Fundo escuro #0D1B2A
 - Importar Playfair Display e Josefin Sans do Google Fonts
 - Cor dourada #C9A84C para destaques
-- Todo texto de conteúdo deve ser BRANCO #FFFFFF ou no mínimo rgba(255,255,255,0.85) — NUNCA cinza escuro
+- Todo texto de conteúdo deve ser BRANCO #FFFFFF ou rgba(255,255,255,0.85)
 - Cards com bordas arredondadas
 - Badge com nome "${agencyName}" no topo e rodapé
 - Responsivo para mobile
-- Checkboxes funcionais com JavaScript assim:
-  <input type="checkbox" onclick="this.parentElement.style.textDecoration=this.checked?'line-through':'none'" style="cursor:pointer;width:16px;height:16px;margin-right:8px;">
 
-RESTAURANTES:
-- Para cada restaurante inclua o endereço completo
-- Crie um link clicável assim: <a href="https://www.google.com/maps/search/NOME+DO+RESTAURANTE+CIDADE" target="_blank" style="color:#C9A84C;">📍 Ver no Google Maps</a>
-- Substitua espaços por + na URL do Maps
+RESTAURANTES: Para cada restaurante inclua endereço e link clicável:
+<a href="https://www.google.com/maps/search/NOME+CIDADE" target="_blank" style="color:#C9A84C;">📍 Ver no Google Maps</a>
+
+CHECKBOXES: Use este formato para cada item:
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:8px 0;">
+<input type="checkbox" style="width:16px;height:16px;cursor:pointer;">
+<span>Item do checklist</span>
+</label>
 
 IMPORTANTE: Retorne APENAS o HTML puro, sem markdown, sem blocos de código, sem explicações.`
             }
@@ -64,9 +66,6 @@ IMPORTANTE: Retorne APENAS o HTML puro, sem markdown, sem blocos de código, sem
     })
 
     const data = await response.json()
-    
-    console.log('Anthropic response status:', response.status)
-    console.log('Anthropic data:', JSON.stringify(data).slice(0, 200))
 
     if (!data.content || data.content.length === 0) {
       return Response.json({ error: 'Sem resposta da IA', details: data }, { status: 500 })
@@ -78,7 +77,9 @@ IMPORTANTE: Retorne APENAS o HTML puro, sem markdown, sem blocos de código, sem
       .replace(/\n?```$/i, '')
       .trim()
 
-    return Response.json({ html })
+    const shareToken = crypto.randomUUID()
+
+    return Response.json({ html, shareToken })
 
   } catch (err) {
     console.error('Erro na API:', err)
